@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#f3efe6" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#101216" media="(prefers-color-scheme: dark)">
+  <title>My Trading Code · Trading desk</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/styles.css">
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("td-theme");
+        if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body data-page="rules">
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="index.html">
+        <span class="mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" width="32" height="32">
+            <rect width="32" height="32" rx="8" fill="currentColor"/>
+            <path d="M7 21.5c3.2-.4 5.2-6.2 8.2-6.2 2.4 0 3.2 3.4 5.2 3.4 2.6 0 3.6-5.2 6.6-6.4" fill="none" stroke="#e7a06a" stroke-width="2.2" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span class="brand-text">
+          <span class="brand-name">Trading desk</span>
+          <span class="brand-sub">Process over P&amp;L</span>
+        </span>
+      </a>
+      <nav class="nav" aria-label="Primary">
+        <a href="index.html">Dashboard</a>
+        <a href="rules.html" aria-current="page">Code</a>
+        <a href="ideas.html">Ideas</a>
+        <a href="trades.html">Trades</a>
+        <a href="lessons.html">Lessons</a>
+      </nav>
+      <button type="button" class="theme-btn" id="theme-btn">Theme</button>
+    </div>
+  </header>
+  <div class="rangebar" id="rangebar">
+    <div class="range-inner">
+      <div class="presets" id="presets" role="group" aria-label="Date range"></div>
+      <div class="dates">
+        <label>From <input type="date" id="date-from"></label>
+        <label>To <input type="date" id="date-to"></label>
+      </div>
+      <p class="range-readout" id="range-readout">Reading the trade log…</p>
+    </div>
+  </div>
+  <main id="main" class="wrap">
+    <header class="page-head">
+      <h1 class="page-title">My Trading Code</h1>
+      <p class="lede">Thirteen lines, verbatim. The date bar above recounts violations inside that window. It does not rewrite the lines.</p>
+    </header>
+
+    <div class="rules">
+      <article class="rule" id="portion">
+        <span class="rule-n">01</span>
+        <div>
+          <blockquote>What portion of this move can I justify risking money on?</blockquote>
+          <p class="rule-meta">A principle. Not auto-scored.</p>
+        </div>
+      </article>
+      <article class="rule" id="second-mouse">
+        <span class="rule-n">02</span>
+        <div>
+          <blockquote>The second mouse gets the cheese.</blockquote>
+          <p class="rule-meta">Scored together with the next line, from the same tags.</p>
+          <p class="rule-meta" data-count-for="confirm">Counted from the journal.</p>
+        </div>
+      </article>
+      <article class="rule" id="confirm">
+        <span class="rule-n">03</span>
+        <div>
+          <blockquote>Confirmation before conviction.</blockquote>
+          <p class="rule-meta" data-count-for="confirm">Counted from the journal.</p>
+        </div>
+      </article>
+      <article class="rule" id="size">
+        <span class="rule-n">04</span>
+        <div>
+          <blockquote>The setup determines the stop. The stop determines the size.</blockquote>
+          <p class="rule-meta" data-count-for="size">Counted from the journal.</p>
+        </div>
+      </article>
+      <article class="rule" id="right-stock">
+        <span class="rule-n">05</span>
+        <div>
+          <blockquote>I can be right about the stock and wrong about the trade.</blockquote>
+          <p class="rule-meta">A principle. Not auto-scored.</p>
+        </div>
+      </article>
+      <article class="rule" id="noadd">
+        <span class="rule-n">06</span>
+        <div>
+          <blockquote>Never add just to improve my average.</blockquote>
+          <p class="rule-meta" data-count-for="noadd">Counted from the journal.</p>
+        </div>
+      </article>
+      <article class="rule" id="missing">
+        <span class="rule-n">07</span>
+        <div>
+          <blockquote>Missing a move is not losing money.</blockquote>
+          <p class="rule-meta">Not a violation. A missed trade is not in the P&amp;L and does not change the compliance rate. Logged misses, from <code>data/missed_trades.csv</code>, sit here.</p>
+          <div id="missed"></div>
+        </div>
+      </article>
+      <article class="rule" id="revenge">
+        <span class="rule-n">08</span>
+        <div>
+          <blockquote>No revenge trades. No forced trades.</blockquote>
+          <p class="rule-meta" data-count-for="revenge">Counted from the journal.</p>
+        </div>
+      </article>
+      <article class="rule" id="risk50">
+        <span class="rule-n">09</span>
+        <div>
+          <blockquote>Risk $50 maximum per idea, including adds and reentries.</blockquote>
+          <p class="rule-meta" data-count-for="risk50">Counted from the journal.</p>
+        </div>
+      </article>
+      <article class="rule" id="stop3">
+        <span class="rule-n">10</span>
+        <div>
+          <blockquote>Three stop-outs and I'm done.</blockquote>
+          <p class="rule-meta" data-count-for="stop3">Counted from the journal.</p>
+        </div>
+      </article>
+      <article class="rule" id="chart">
+        <span class="rule-n">11</span>
+        <div>
+          <blockquote>Trade the chart, not the P&amp;L.</blockquote>
+          <p class="rule-meta">A principle. Not auto-scored.</p>
+        </div>
+      </article>
+      <article class="rule" id="process-win">
+        <span class="rule-n">12</span>
+        <div>
+          <blockquote>A good losing trade is a process win.</blockquote>
+          <p class="rule-meta">A principle. Not auto-scored. A losing trade with no flagged rule counts as compliant.</p>
+        </div>
+      </article>
+      <article class="rule" id="losers">
+        <span class="rule-n">13</span>
+        <div>
+          <blockquote>My goal is not to make my winners bigger by taking more risk. My first goal is to stop making my losers unnecessarily bigger.</blockquote>
+          <p class="rule-meta">A principle. Not auto-scored. Planned risk, slippage, and size escalation are the measurements under it. Historical rows did not record planned risk, so they are not given one.</p>
+        </div>
+      </article>
+    </div>
+
+    <section class="card mt">
+      <div class="card-head">
+        <h2>Violations in this window</h2>
+        <p id="violation-summary">Counting the journal…</p>
+      </div>
+      <p class="fine">The $50 line is three rows. A recorded plan over $50 is a planned-risk violation and counts against compliance. A loss over $50 inside a plan of $50 or less is slippage: it is shown here and does not flip the compliance flag. With no planned risk on the row, a loss over $50 stays the historical proxy and still counts. Stick to the plan is the journal tag “broke plan”. It is not one of the thirteen lines, and it still counts. A trade can trip more than one check, so the dollars are not a split of net P&amp;L.</p>
+      <div class="table-scroll">
+        <table class="violations">
+          <thead>
+            <tr>
+              <th scope="col">Rule</th>
+              <th scope="col">Flagged</th>
+              <th scope="col">Gross P&amp;L</th>
+              <th scope="col"></th>
+            </tr>
+          </thead>
+          <tbody id="violations-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card mt">
+      <div class="card-head">
+        <h2>Going forward</h2>
+        <p>Every new trade should carry a real checklist. Blank cells stay inferred, and a blank planned-risk cell is never filled in from a guess.</p>
+      </div>
+      <ul class="going">
+        <li>Planned stop, in <code>stop</code>.</li>
+        <li>Planned risk, in <code>planned_risk</code>. Leave it blank only if <code>stop</code>, entry, and share size are all numbers: the site then uses |entry − stop| × size.</li>
+        <li><code>idea_id</code>, shared by the starter, the adds, the stop-outs, and the reentries. Example: <code>2026-11-17-ABCD-1</code>.</li>
+        <li>Setup valid, <code>setup_valid</code> as Y or N.</li>
+        <li><code>size_reason</code>: planned, A+ setup, emotional, or other.</li>
+        <li>Each rule as Y or N: confirmation, risk $50, no revenge, no averaging, three stops, stop and size, plan.</li>
+      </ul>
+    </section>
+
+    <aside class="callout mt-sm">
+      <h2>This history is an upper bound</h2>
+      <p>Historical compliance is derived from journal notes, mistakes tags, and P&amp;L. It is not a checklist he filled out when he placed the trade. A note that says nothing looks like a clean trade, so the percentage is likely higher than a real-time card would have been. Rows that include the optional Y/N columns are different: a filled cell replaces the inferred flag for that one rule. Blank cells on the same row still use the inference.</p>
+    </aside>
+  </main>
+  <footer class="site-footer">
+    <div class="wrap footer-inner">
+      <p>Gross dollars, as written in the journal. Not a brokerage statement.</p>
+    </div>
+  </footer>
+  <script type="module" src="js/rules.js"></script>
+</body>
+</html>

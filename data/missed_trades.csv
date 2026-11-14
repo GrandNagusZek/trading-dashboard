@@ -1,0 +1,2 @@
+date,ticker,direction,planned_entry,stop,target,outcome_if_taken,reason_skipped,lesson,source_file
+2022-05-13,VERU,short (no trade),13.50 (lower-high retests ~12:30 13:30 15:15),over 13.75,12.75/VWAP with a small piece held for lower,would have worked per his review (repeatable at 13.50 line),stayed out because it broke premarket high before the open,"Trust the lines: take the trade, keep risk set, stop out if resistance breaks and wait for the next line",chat chart 2022-05-13_VERU_3m_5m.png + his note
