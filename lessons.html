@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#f3efe6" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#101216" media="(prefers-color-scheme: dark)">
+  <title>Lessons · Trading desk</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/styles.css">
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("td-theme");
+        if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body data-page="lessons">
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="index.html">
+        <span class="mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" width="32" height="32">
+            <rect width="32" height="32" rx="8" fill="currentColor"/>
+            <path d="M7 21.5c3.2-.4 5.2-6.2 8.2-6.2 2.4 0 3.2 3.4 5.2 3.4 2.6 0 3.6-5.2 6.6-6.4" fill="none" stroke="#e7a06a" stroke-width="2.2" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span class="brand-text">
+          <span class="brand-name">Trading desk</span>
+          <span class="brand-sub">Process over P&amp;L</span>
+        </span>
+      </a>
+      <nav class="nav" aria-label="Primary">
+        <a href="index.html">Dashboard</a>
+        <a href="rules.html">Code</a>
+        <a href="ideas.html">Ideas</a>
+        <a href="trades.html">Trades</a>
+        <a href="lessons.html" aria-current="page">Lessons</a>
+      </nav>
+      <button type="button" class="theme-btn" id="theme-btn">Theme</button>
+    </div>
+  </header>
+  <main id="main" class="wrap">
+    <p class="loading">Reading the journal lessons…</p>
+  </main>
+  <footer class="site-footer">
+    <div class="wrap footer-inner">
+      <p>Quoted from his trade journal. Spelling kept as written.</p>
+    </div>
+  </footer>
+  <script type="module" src="js/lessons.js"></script>
+</body>
+</html>
