@@ -1,3 +1,4 @@
+import { analyze } from "./engine.js";
 import { boot } from "./shell.js";
 import { drawLine, drawVBars, drawHBars, drawRatio } from "./charts.js";
 import { h } from "./dom.js";
@@ -108,14 +109,12 @@ function costPanel(view) {
   const gross = view.costs.gross;
   const net = view.costs.net;
   return h("section", { class: "card" },
-    view.costs.configured
-      ? null
-      : h("p", { class: "banner" }, "Costs not configured, P&L is gross."),
+    view.costs.banner ? h("p", { class: "banner" }, view.costs.banner) : null,
     h("div", { class: "card-head" },
       h("h2", {}, "Gross and net"),
-      h("p", {}, view.costs.configured
-        ? "Net subtracts a row’s commission, fees, and locate cost when those cells are filled, otherwise the rates in data/config.json. Locates in the config apply to shorts."
-        : "Set data/config.json, or fill commission, fees, and locate_cost on a row, and this becomes net of costs."),
+      h("p", {}, view.costs.historicalGross
+        ? "Personal and historical rows stay gross unless commission, fees, or locate cost is written on that row. A recorded fee replaces the account default."
+        : "Net subtracts a row’s commission, fees, and locate cost when those cells are filled, otherwise the rates in data/config.json."),
     ),
     h("div", { class: "kpis cost-kpis" },
       stat("Gross P&L", gross.n ? money(gross.net) : "—", "gross-pnl", "Before costs"),
@@ -125,6 +124,23 @@ function costPanel(view) {
     ),
     h("p", { class: "fine" },
       `Break-even cost per trade ${gross.n ? money(gross.exp) : "—"}. That is gross expectancy: costs larger than this, on a typical trade, erase the edge.`,
+    ),
+  );
+}
+
+function evalPanel(view) {
+  const book = view.evalBook;
+  if (!book || !book.trades.n) return null;
+  return h("section", { class: "card", id: "eval-book" },
+    h("div", { class: "card-head" },
+      h("h2", {}, "Trade the Pool eval"),
+      h("p", {}, "Separate from the personal journal. Risk is the grade cap, not the flat $50 check. Net uses the fees written on the row."),
+    ),
+    h("div", { class: "kpis" },
+      stat("Eval trades", String(book.trades.n), "eval-n", `${book.trades.ok} risk-compliant`),
+      stat("Eval compliance", pct(book.trades.pct), "eval-compliance", `${book.trades.ok} of ${book.trades.n}`),
+      stat("Eval gross P&L", money(book.gross.net), "eval-gross", `Expectancy ${money(book.gross.exp)}`),
+      stat("Eval net P&L", money(book.net.net), "eval-net", `Expectancy ${money(book.net.exp)}`),
     ),
   );
 }
@@ -236,7 +252,7 @@ function breaches(view) {
   );
 }
 
-function render(view) {
+function paint(view) {
   const main = document.getElementById("main");
   if (!view.trades.n) {
     main.replaceChildren(
@@ -268,8 +284,10 @@ function render(view) {
 
   main.replaceChildren(
     h("div", { class: "dashboard" },
+      bookBar(),
       hero(view),
       kpis(view),
+      book === "eval" ? null : evalPanel(view),
       costPanel(view),
       insight(view),
       qualityPanel(view),
@@ -373,6 +391,44 @@ function render(view) {
   if (foot) {
     foot.textContent = `Log through ${prettyDate(view.maxDate)} · ${view.trades.n} live trades in this window · gross dollars.`;
   }
+}
+
+let book = new URLSearchParams(location.search).get("book");
+if (book !== "eval" && book !== "personal") book = "all";
+let ctx = null;
+let lastFull = null;
+
+function bookBar() {
+  const choices = [
+    ["all", "All trades"],
+    ["eval", "Eval"],
+    ["personal", "Personal"],
+  ];
+  return h("div", { class: "bookbar", role: "group", "aria-label": "Which account" },
+    choices.map(([id, label]) => h("button", {
+      type: "button",
+      class: "preset",
+      "aria-pressed": book === id ? "true" : "false",
+      onClick: () => {
+        book = id;
+        const params = new URLSearchParams(location.search);
+        if (id === "all") params.delete("book");
+        else params.set("book", id);
+        const s = params.toString();
+        history.replaceState(null, "", location.pathname + (s ? "?" + s : "") + location.hash);
+        if (lastFull) render(lastFull);
+      },
+    }, label)),
+  );
+}
+
+function render(view, extra) {
+  if (extra) ctx = extra;
+  lastFull = view;
+  const scoped = book === "all" || !ctx
+    ? view
+    : analyze(ctx.records, { from: view.from, to: view.to, book }, ctx.config);
+  paint(scoped);
 }
 
 boot(render);

@@ -52,7 +52,15 @@ export const RULES = [
     name: "Risk $50 maximum per idea, including adds and reentries",
     short: "Risk $50",
     detail:
-      "Without a recorded planned risk, a numeric loss larger than $50 is the proxy. Once planned risk is on the row, the rule is judged per idea: planned risk over $50 is a violation, and a loss over $50 inside a $50 plan is slippage, not this flag.",
+      "Personal and historical trades only. Without a recorded planned risk, a numeric loss larger than $50 is the proxy. Once planned risk is on the row, the rule is judged per idea: planned risk over $50 is a violation, and a loss over $50 inside a $50 plan is slippage, not this flag. Trade the Pool eval trades use the grade cap instead.",
+  },
+  {
+    id: "riskCap",
+    column: "rule_risk_cap",
+    name: "Eval risk to the stop, by setup grade",
+    short: "Eval risk cap",
+    detail:
+      "Trade the Pool accounts only. A stop has to be written before entry, and planned risk has to sit at or under the cap for the grade written in the plan. Ungraded uses the C cap. If planned risk was not recorded, this check is not scored.",
   },
   {
     id: "stop3",
@@ -178,6 +186,18 @@ export const DEFAULT_COSTS = {
   locate_per_share: 0,
   locate_per_trade: 0,
 };
+
+export const DEFAULT_RISK_CAPS = { A: 250, B: 100, C: 50 };
+
+/** Trade the Pool eval accounts use grade caps, not the flat $50 journal rule. */
+export function isEvalAccount(account) {
+  return (account || "").includes("Trade the Pool");
+}
+
+export function recordedGrade(row) {
+  const q = (row.setupQuality || "").trim().toUpperCase();
+  return q === "A" || q === "B" || q === "C" ? q : null;
+}
 
 export const QUALITY_ERRORS = [
   { id: "entry", label: "Entry timing" },
@@ -345,66 +365,146 @@ function annotateEscalation(records) {
   }
 }
 
+function numOr(value, fallback) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 function normalizeConfig(config) {
   const out = { ...DEFAULT_COSTS };
   for (const key of Object.keys(DEFAULT_COSTS)) {
-    const n = Number(config?.[key]);
-    out[key] = Number.isFinite(n) ? n : 0;
+    out[key] = numOr(config?.[key], 0);
   }
+  const caps = config?.riskCapsByGrade || {};
+  out.riskCapsByGrade = {
+    A: numOr(caps.A, DEFAULT_RISK_CAPS.A),
+    B: numOr(caps.B, DEFAULT_RISK_CAPS.B),
+    C: numOr(caps.C, DEFAULT_RISK_CAPS.C),
+  };
+  out.accountCosts = Array.isArray(config?.accountCosts)
+    ? config.accountCosts
+        .filter((rule) => rule && rule.match)
+        .map((rule) => ({
+          match: String(rule.match),
+          commission_per_share: numOr(rule.commission_per_share, 0),
+          min_per_fill: numOr(rule.min_per_fill, 0),
+        }))
+    : [];
   return out;
+}
+
+function fillShareCounts(row) {
+  const text = `${row.entryRaw || ""} ${row.exit || ""}`;
+  return [...text.matchAll(/\b[SB](\d+(?:\.\d+)?)@/gi)].map((match) => Number(match[1]));
+}
+
+function explicitCost(row) {
+  const parts = [row.commission, row.fees, row.locateCost].filter((n) => n != null);
+  if (!parts.length) return null;
+  return parts.reduce((sum, n) => sum + n, 0);
+}
+
+function applyGlobalCost(row, costs) {
+  let cost = 0;
+  let assumed = false;
+  if (costs.commission_per_share && row.shares != null) {
+    cost += row.shares * costs.commission_per_share;
+    assumed = true;
+  }
+  if (costs.min_per_order) {
+    cost += costs.min_per_order;
+    assumed = true;
+  }
+  if (costs.ecn_fees_per_share && row.shares != null) {
+    cost += row.shares * costs.ecn_fees_per_share;
+    assumed = true;
+  }
+  if (row.dir === "short") {
+    if (costs.locate_per_share && row.shares != null) {
+      cost += row.shares * costs.locate_per_share;
+      assumed = true;
+    }
+    if (costs.locate_per_trade) {
+      cost += costs.locate_per_trade;
+      assumed = true;
+    }
+  }
+  return { cost, assumed };
+}
+
+function applyAccountCost(row, rule) {
+  const perShare = rule.commission_per_share || 0;
+  const minFill = rule.min_per_fill || 0;
+  const sizes = fillShareCounts(row);
+  if (sizes.length) {
+    return sizes.reduce((sum, shares) => sum + Math.max(shares * perShare, minFill), 0);
+  }
+  if (row.shares != null) return Math.max(row.shares * perShare, minFill);
+  return 0;
 }
 
 function annotateCosts(records, config) {
   const costs = normalizeConfig(config);
-  const configured = Object.values(costs).some((n) => n !== 0);
+  const globalOn = Object.keys(DEFAULT_COSTS).some((key) => costs[key] !== 0);
+  const evalOn = costs.accountCosts.some((rule) => rule.commission_per_share !== 0 || rule.min_per_fill !== 0);
   const anyExplicit = records.some((r) => r.commission != null || r.fees != null || r.locateCost != null);
   for (const row of records) {
+    const recordedTotal = explicitCost(row);
     let cost = 0;
     let recorded = false;
     let assumed = false;
-    if (row.commission != null) {
-      cost += row.commission;
+    if (recordedTotal != null) {
+      cost = recordedTotal;
       recorded = true;
-    } else if (costs.commission_per_share && row.shares != null) {
-      cost += row.shares * costs.commission_per_share;
-      assumed = true;
-    }
-    if (row.commission == null && costs.min_per_order) {
-      cost += costs.min_per_order;
-      assumed = true;
-    }
-    if (row.fees != null) {
-      cost += row.fees;
-      recorded = true;
-    } else if (costs.ecn_fees_per_share && row.shares != null) {
-      cost += row.shares * costs.ecn_fees_per_share;
-      assumed = true;
-    }
-    if (row.locateCost != null) {
-      cost += row.locateCost;
-      recorded = true;
-    } else if (row.dir === "short") {
-      if (costs.locate_per_share && row.shares != null) {
-        cost += row.shares * costs.locate_per_share;
-        assumed = true;
-      }
-      if (costs.locate_per_trade) {
-        cost += costs.locate_per_trade;
-        assumed = true;
+    } else {
+      const accountRule = costs.accountCosts.find((rule) => (row.account || "").includes(rule.match));
+      if (accountRule) {
+        cost = applyAccountCost(row, accountRule);
+        assumed = cost !== 0;
+      } else {
+        const global = applyGlobalCost(row, costs);
+        cost = global.cost;
+        assumed = global.assumed;
       }
     }
     row.cost = cost;
     row.netPnl = row.pnl == null ? null : row.pnl - cost;
-    row.costSource = recorded && assumed ? "mixed" : recorded ? "recorded" : assumed ? "assumed" : "none";
+    row.costSource = recorded ? "recorded" : assumed ? "assumed" : "none";
   }
-  return { config: costs, configured: configured || anyExplicit };
+  const configured = globalOn || evalOn || anyExplicit;
+  let banner = null;
+  if (!configured) banner = "Costs not configured, P&L is gross.";
+  else if (!globalOn && evalOn) {
+    const rule = costs.accountCosts.find((item) => item.commission_per_share || item.min_per_fill);
+    const per = rule ? `$${rule.commission_per_share} per share` : "the account rate";
+    const min = rule ? `$${rule.min_per_fill.toFixed(2)} minimum per fill` : "a minimum per fill";
+    banner = `Historical trades stay gross unless a cost was written on the row. Trade the Pool eval trades use the fees on the row, or ${per} with a ${min}.`;
+  }
+  return { config: costs, configured, historicalGross: !globalOn, evalModel: evalOn, banner };
+}
+
+function scoreEvalIdea(list, planned, complete, caps) {
+  const grades = [...new Set(list.map(recordedGrade).filter(Boolean))];
+  const grade = grades.length === 1 && list.every((row) => recordedGrade(row)) ? grades[0] : null;
+  const cap = grade ? caps[grade] : caps.C;
+  if (!complete) {
+    return { kind: "eval-unscored", breach: false, grade: "ungraded", cap, status: "unrecorded" };
+  }
+  if (list.some((row) => row.stop == null)) {
+    return { kind: "eval-nostop", breach: true, grade: grade || "ungraded", cap, status: "nostop" };
+  }
+  if (planned > cap) {
+    return { kind: "eval-over", breach: true, grade: grade || "ungraded", cap, status: "over" };
+  }
+  return { kind: "eval-within", breach: false, grade: grade || "ungraded", cap, status: "within" };
 }
 
 /**
  * $50 is per idea once planned risk is recorded on every row of the idea.
  * Historical ideas have no planned risk, so the row-level loss proxy is left alone.
+ * Trade the Pool ideas use the grade cap instead of $50.
  */
-function applyPlanClassification(rows) {
+function applyPlanClassification(rows, caps) {
   const groups = new Map();
   for (const row of rows) {
     if (row.paper) continue;
@@ -415,14 +515,19 @@ function applyPlanClassification(rows) {
     if (!groups.has(id.key)) groups.set(id.key, []);
     groups.get(id.key).push(row);
   }
-  for (const list of groups.values()) {
+    for (const list of groups.values()) {
     const plannedValues = list.map((r) => r.plannedRisk).filter((n) => n != null);
     const complete = plannedValues.length === list.length && plannedValues.length > 0;
     const planned = plannedValues.length ? plannedValues.reduce((s, n) => s + n, 0) : null;
     const loss = list.reduce((s, r) => s + (r.pnl != null && r.pnl < 0 ? -r.pnl : 0), 0);
     const open = [...list].reverse().find((r) => r.openRisk != null)?.openRisk ?? null;
+    const evalIdea = list.some((r) => isEvalAccount(r.account));
     let status = "unrecorded";
-    if (complete) {
+    let evalMeta = null;
+    if (evalIdea) {
+      evalMeta = scoreEvalIdea(list, planned, complete, caps);
+      status = evalMeta.status;
+    } else if (complete) {
       if (planned > 50) status = "planned";
       else if (loss > 50) status = "slippage";
       else status = "within";
@@ -433,6 +538,18 @@ function applyPlanClassification(rows) {
       row.ideaRealizedLoss = list.some((r) => r.pnl != null) ? loss : null;
       row.ideaOpenRisk = open;
       row.ideaTradeCount = list.length;
+      row.riskGrade = evalMeta ? evalMeta.grade : null;
+      row.riskCap = evalMeta ? evalMeta.cap : null;
+      if (evalIdea) {
+        row.v.delete("risk50");
+        if (row.overrides.risk50 === "Y") row.v.delete("riskCap");
+        else if (row.overrides.risk50 === "N" || evalMeta.breach) row.v.add("riskCap");
+        else row.v.delete("riskCap");
+        row.riskKind = row.overrides.risk50 === "Y" ? "eval-within" : row.overrides.risk50 === "N" ? "eval-over" : evalMeta.kind;
+        row.ok = row.v.size === 0;
+        row.rules = RULES.filter((rule) => row.v.has(rule.id)).map((rule) => rule.id);
+        continue;
+      }
       if (!complete) {
         row.riskKind = row.v.has("risk50") ? "proxy" : "none";
         continue;
@@ -638,6 +755,16 @@ function emptyOutcome() {
  * @param {ReturnType<parseTrades>} records
  * @param {{from?: string, to?: string}} [range] blank from/to means all time, which is the only view that includes undated rows
  */
+function bookStats(rows) {
+  const scoredRows = rows.filter((r) => r.pnl != null);
+  const ok = rows.filter((r) => r.ok).length;
+  return {
+    trades: { ok, n: rows.length, pct: rows.length ? (ok / rows.length) * 100 : 0 },
+    gross: scoredRows.length ? outcome(scoredRows) : emptyOutcome(),
+    net: scoredRows.length ? outcome(scoredRows.map((r) => ({ pnl: r.netPnl }))) : emptyOutcome(),
+  };
+}
+
 function riskBucket(live, kind, meta) {
   const rows = live.filter((r) => r.riskKind === kind);
   const withPnl = rows.filter((r) => r.pnl != null);
@@ -665,8 +792,16 @@ function buildIdeas(live) {
     const plannedValues = rows.map((r) => r.plannedRisk).filter((n) => n != null);
     const complete = plannedValues.length === rows.length && plannedValues.length > 0;
     const planned = plannedValues.length ? plannedValues.reduce((s, n) => s + n, 0) : null;
+    const evalRow = rows.find((r) => isEvalAccount(r.account));
     let status = "No $50 flag";
-    if (!scoredRows.length && planned == null) status = "Not recorded";
+    if (evalRow) {
+      const kind = evalRow.riskKind;
+      const grade = evalRow.riskGrade === "ungraded" ? "ungraded, C cap" : `${evalRow.riskGrade} cap`;
+      if (kind === "eval-over") status = `Over ${grade}`;
+      else if (kind === "eval-nostop") status = "No stop at entry";
+      else if (kind === "eval-within") status = `Within ${grade}`;
+      else status = "Risk not recorded";
+    } else if (!scoredRows.length && planned == null) status = "Not recorded";
     else if (complete && planned > 50) status = "Planned-risk violation";
     else if (complete && loss > 50) status = "Slippage/overrun";
     else if (complete) status = "Within $50";
@@ -781,9 +916,12 @@ export function analyze(records, range = {}, config = DEFAULT_COSTS) {
     if (!maxDate || r.date > maxDate) maxDate = r.date;
   }
 
-  const view = records.filter((r) => inRange(r, from, to));
+  let view = records.filter((r) => inRange(r, from, to));
   const stopDays = finalize(view);
-  applyPlanClassification(view);
+  applyPlanClassification(view, costInfo.config.riskCapsByGrade);
+  const evalBook = bookStats(view.filter((r) => !r.paper && isEvalAccount(r.account)));
+  if (range.book === "eval") view = view.filter((r) => isEvalAccount(r.account));
+  else if (range.book === "personal") view = view.filter((r) => !isEvalAccount(r.account));
   const live = view.filter((r) => !r.paper);
   const paper = view.filter((r) => r.paper);
   const scored = live.filter((r) => r.pnl != null);
@@ -968,6 +1106,8 @@ export function analyze(records, range = {}, config = DEFAULT_COSTS) {
       gross: scored.length ? outcome(scored) : emptyOutcome(),
       net: scored.length ? outcome(scored.map((r) => ({ pnl: r.netPnl }))) : emptyOutcome(),
     },
+    evalBook,
+    riskCaps: costInfo.config.riskCapsByGrade,
     daily,
     monthly,
     prices,

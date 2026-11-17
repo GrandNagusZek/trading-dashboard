@@ -3,5 +3,17 @@
   "min_per_order": 0,
   "ecn_fees_per_share": 0,
   "locate_per_share": 0,
-  "locate_per_trade": 0
+  "locate_per_trade": 0,
+  "riskCapsByGrade": {
+    "A": 250,
+    "B": 100,
+    "C": 50
+  },
+  "accountCosts": [
+    {
+      "match": "Trade the Pool",
+      "commission_per_share": 0.005,
+      "min_per_fill": 0.75
+    }
+  ]
 }

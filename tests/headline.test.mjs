@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { analyze, parseTrades } from "../js/engine.js";
+import { analyze, isEvalAccount, parseTrades } from "../js/engine.js";
 import { money, pct, pyRound } from "../js/format.js";
 
 const csv = fs.readFileSync(new URL("../data/trades.csv", import.meta.url), "utf8");
+const config = JSON.parse(fs.readFileSync(new URL("../data/config.json", import.meta.url), "utf8"));
 const records = parseTrades(csv);
-const view = analyze(records, {});
+const historicalRecords = records.filter((row) => !isEvalAccount(row.account));
+const view = analyze(historicalRecords, {});
+const all = analyze(records, {}, config);
 const fixture = JSON.parse(fs.readFileSync(new URL("./fixtures/compliance.json", import.meta.url), "utf8"));
 
 function $(n) {
@@ -13,9 +16,10 @@ function $(n) {
 }
 
 test("the log parses, including the paper row", () => {
-  assert.equal(records.length, 289);
+  assert.equal(records.length, 291);
   assert.equal(records.filter((r) => r.paper).length, 1);
   assert.equal(view.live.length, 288);
+  assert.equal(all.live.length, 290);
   assert.ok(csv.includes("rule_confirmation"));
   assert.ok(csv.includes("rule_three_stops"));
 });
@@ -75,6 +79,7 @@ test("per-rule counts and P&L", () => {
     noadd: [0, 0],
     plan: [25, -490.68],
     size: [7, 59.75],
+    riskCap: [0, 0],
   };
   for (const rule of view.rules) {
     const [count, pnl] = expect[rule.id];
@@ -141,11 +146,11 @@ test("time of day buckets cover every numeric trade", () => {
 });
 
 test("a dated window drops undated rows and keeps the same rules", () => {
-  const june = analyze(records, { from: "2023-06-01", to: "2023-06-30" });
+  const june = analyze(historicalRecords, { from: "2023-06-01", to: "2023-06-30" });
   assert.equal(june.undated.n, 0);
   assert.ok(june.live.length > 0);
   assert.ok(june.live.every((r) => r.date.startsWith("2023-06")));
-  const back = analyze(records, {});
+  const back = analyze(historicalRecords, {});
   assert.equal(back.trades.ok, 215);
 });
 
@@ -228,10 +233,63 @@ test("new columns do not move the historical $50 proxy, and recorded risk is per
   assert.equal(by[7].quality, "B");
   assert.equal(by[7].qualitySource, "recorded");
   assert.deepEqual(by[7].qualityErrors, ["exit"]);
-  const priced = analyze(records, {}, { commission_per_share: 0.01 });
+  const priced = analyze(historicalRecords, {}, { commission_per_share: 0.01 });
   assert.equal(priced.costs.configured, true);
   assert.equal($(priced.pnl.net), 708.04);
   assert.ok(priced.costs.net.net < priced.costs.gross.net);
+});
+
+test("eval trades use grade caps and recorded fees, and the old book is unchanged", () => {
+  assert.equal(pct(all.trades.pct), "74.5%");
+  assert.equal(all.trades.ok, 216);
+  assert.equal(all.trades.n, 290);
+  assert.equal(pct(all.days.pct), "60.2%");
+  assert.equal(all.days.ok, 103);
+  assert.equal(all.days.n, 171);
+  assert.equal($(all.pnl.net), 996.74);
+  assert.equal($(all.costs.net.net), 984.44);
+  assert.equal($(all.pnl.exp), 3.88);
+  assert.equal($(all.costs.net.exp), 3.83);
+  assert.equal(all.evalBook.trades.n, 2);
+  assert.equal(all.evalBook.trades.ok, 1);
+  assert.equal(pct(all.evalBook.trades.pct), "50.0%");
+  assert.equal($(all.evalBook.gross.net), 288.7);
+  assert.equal($(all.evalBook.gross.exp), 144.35);
+  assert.equal($(all.evalBook.net.net), 276.4);
+  assert.equal($(all.evalBook.net.exp), 138.2);
+  assert.match(all.costs.banner, /Historical trades stay gross/);
+  assert.equal(all.costs.historicalGross, true);
+
+  const by = Object.fromEntries(all.live.map((row) => [row.id, row]));
+  assert.equal(by[290].pnl, 284.3);
+  assert.equal(by[290].plannedRisk, 251);
+  assert.equal(by[290].stop, 4.04);
+  assert.equal(by[290].fees, 10.8);
+  assert.equal(by[290].quality, "A");
+  assert.equal(by[290].qualitySource, "recorded");
+  assert.equal(by[290].setupValid, "Y");
+  assert.equal(by[290].ideaId, "2026-11-16-LXEO");
+  assert.equal(by[290].riskGrade, "A");
+  assert.equal(by[290].riskKind, "eval-over");
+  assert.equal(by[290].ok, false);
+  assert.equal($(by[290].netPnl), 273.5);
+  assert.equal(by[291].pnl, 4.4);
+  assert.equal(by[291].plannedRisk, 6.5);
+  assert.equal(by[291].stop, 3);
+  assert.equal(by[291].setupQuality, "");
+  assert.equal(by[291].riskGrade, "ungraded");
+  assert.equal(by[291].riskKind, "eval-within");
+  assert.equal(by[291].ok, true);
+  assert.equal($(by[291].cost), 1.5);
+  assert.equal($(by[291].netPnl), 2.9);
+  const personal = analyze(parseTrades(csv).filter((row) => !isEvalAccount(row.account)), {}, config);
+  assert.ok(personal.live.every((row) => row.cost === 0));
+
+  const pricedFill = analyze(parseTrades([
+    "id,date,day_of_week,ticker,account,direction,entry,exit,size,pnl,result,setup,time_of_day,holding_time,mistakes_tags,notes,source_file",
+    "1,2026-11-20,Fri,ZZZ,Trade the Pool eval,short,S10@2.00,B10@1.80,10 sh,2,win,line,open,1m,,,src",
+  ].join("\n")), {}, config);
+  assert.equal($(pricedFill.live[0].cost), 1.5);
 });
 
 function test(name, fn) {

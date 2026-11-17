@@ -393,6 +393,7 @@ body[data-page="lessons"] .rangebar { display: none; }
 }
 .callout p { margin: 8px 0 0; }
 
+.bookbar { display: flex; gap: 6px; flex-wrap: wrap; }
 .stack { display: flex; flex-direction: column; gap: 14px; }
 .banner {
   margin: 0 0 12px;

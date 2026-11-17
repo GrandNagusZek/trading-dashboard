@@ -166,6 +166,10 @@ Historical flags were read out of the journal after the fact. A quiet note looks
 
 `locate_per_share` and `locate_per_trade` are applied to shorts only. `min_per_order` is added when `commission` is blank. Per-share rates need a share count (`100 sh`, or a bare number). Without one, that piece is left off rather than guessed. Gross P&L on the dashboard does not change when you set these. Net P&L and net expectancy sit beside it. Break-even cost per trade is the gross expectancy.
 
+`riskCapsByGrade` is the Trade the Pool eval cap on planned risk to the stop: A $250, B $100, C $50. An ungraded eval trade uses the C cap. A blank planned risk is not scored. Personal and historical trades stay on the $50 rule. Grade and stop must be written in the plan before entry.
+
+`accountCosts` is the default fee model for an account name match, used only when that row’s commission, fees, and locate cost are all blank. Trade the Pool is `$0.005` per share with a `$0.75` minimum on each fill (`S10@…` / `B10@…` in the entry and exit text). A fee written on the row replaces that default. The global rates above stay at zero, so historical trades stay gross. The dashboard banner says so.
+
 ## Missed trades and lessons
 
 `data/missed_trades.csv` is the list under “Missing a move is not losing money.” Those rows are not violations and they are not in the P&L. Add a row; the Code page picks it up.
