@@ -238,7 +238,7 @@ export async function boot(render) {
   const draw = () => {
     const view = analyze(records, range.get(), config);
     updateReadout(view);
-    render(view);
+    render(view, { records, config });
   };
   range.subscribe(draw);
   draw();

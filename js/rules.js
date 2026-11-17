@@ -3,6 +3,13 @@ import { parseCSV } from "./engine.js";
 import { h } from "./dom.js";
 import { cls, money, prettyDate } from "./format.js";
 
+function fillCaps(view) {
+  const host = document.getElementById("eval-caps");
+  const caps = view.riskCaps;
+  if (!host || !caps) return;
+  host.textContent = `Risk to the stop: A $${caps.A}, B $${caps.B}, C $${caps.C}.`;
+}
+
 function fillCounts(view) {
   const byId = Object.fromEntries(view.rules.map((r) => [r.id, r]));
   document.querySelectorAll("[data-count-for]").forEach((el) => {
@@ -99,6 +106,7 @@ async function loadMissed(view) {
 }
 
 boot((view) => {
+  fillCaps(view);
   fillCounts(view);
   violations(view);
   loadMissed(view);
