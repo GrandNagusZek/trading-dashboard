@@ -16,10 +16,10 @@ function $(n) {
 }
 
 test("the log parses, including the paper row", () => {
-  assert.equal(records.length, 291);
+  assert.equal(records.length, 292);
   assert.equal(records.filter((r) => r.paper).length, 1);
   assert.equal(view.live.length, 288);
-  assert.equal(all.live.length, 290);
+  assert.equal(all.live.length, 291);
   assert.ok(csv.includes("rule_confirmation"));
   assert.ok(csv.includes("rule_three_stops"));
 });
@@ -240,23 +240,23 @@ test("new columns do not move the historical $50 proxy, and recorded risk is per
 });
 
 test("eval trades use grade caps and recorded fees, and the old book is unchanged", () => {
-  assert.equal(pct(all.trades.pct), "74.5%");
-  assert.equal(all.trades.ok, 216);
-  assert.equal(all.trades.n, 290);
-  assert.equal(pct(all.days.pct), "60.2%");
-  assert.equal(all.days.ok, 103);
-  assert.equal(all.days.n, 171);
-  assert.equal($(all.pnl.net), 996.74);
-  assert.equal($(all.costs.net.net), 984.44);
-  assert.equal($(all.pnl.exp), 3.88);
-  assert.equal($(all.costs.net.exp), 3.83);
-  assert.equal(all.evalBook.trades.n, 2);
-  assert.equal(all.evalBook.trades.ok, 1);
-  assert.equal(pct(all.evalBook.trades.pct), "50.0%");
-  assert.equal($(all.evalBook.gross.net), 288.7);
-  assert.equal($(all.evalBook.gross.exp), 144.35);
-  assert.equal($(all.evalBook.net.net), 276.4);
-  assert.equal($(all.evalBook.net.exp), 138.2);
+  assert.equal(pct(all.trades.pct), "74.6%");
+  assert.equal(all.trades.ok, 217);
+  assert.equal(all.trades.n, 291);
+  assert.equal(pct(all.days.pct), "60.5%");
+  assert.equal(all.days.ok, 104);
+  assert.equal(all.days.n, 172);
+  assert.equal($(all.pnl.net), 1226.34);
+  assert.equal($(all.costs.net.net), 1202.44);
+  assert.equal($(all.pnl.exp), 4.75);
+  assert.equal($(all.costs.net.exp), 4.66);
+  assert.equal(all.evalBook.trades.n, 3);
+  assert.equal(all.evalBook.trades.ok, 2);
+  assert.equal(pct(all.evalBook.trades.pct), "66.7%");
+  assert.equal($(all.evalBook.gross.net), 518.3);
+  assert.equal($(all.evalBook.gross.exp), 172.77);
+  assert.equal($(all.evalBook.net.net), 494.4);
+  assert.equal($(all.evalBook.net.exp), 164.8);
   assert.match(all.costs.banner, /Historical trades stay gross/);
   assert.equal(all.costs.historicalGross, true);
 
@@ -282,6 +282,22 @@ test("eval trades use grade caps and recorded fees, and the old book is unchange
   assert.equal(by[291].ok, true);
   assert.equal($(by[291].cost), 1.5);
   assert.equal($(by[291].netPnl), 2.9);
+  assert.equal(by[292].pnl, 229.6);
+  assert.equal(by[292].stop, 3.01);
+  assert.equal(by[292].plannedRisk, 200);
+  assert.equal(by[292].fees, 11.6);
+  assert.equal(by[292].quality, "A");
+  assert.equal(by[292].setupValid, "Y");
+  assert.equal(by[292].executionError, "");
+  assert.equal(by[292].ideaId, "2026-11-17-GP");
+  assert.equal(by[292].riskKind, "eval-within");
+  assert.equal(by[292].ok, true);
+  assert.equal($(by[292].cost), 11.6);
+  assert.equal($(by[292].netPnl), 218);
+  assert.equal(
+    by[292].sizeReason,
+    "planned scale-in starters (max 30 sh before confirmation) then planned 1000 sh after confirmation (broke under VWAP)",
+  );
   const personal = analyze(parseTrades(csv).filter((row) => !isEvalAccount(row.account)), {}, config);
   assert.ok(personal.live.every((row) => row.cost === 0));
 
